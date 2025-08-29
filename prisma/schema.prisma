@@ -1,0 +1,125 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL=postgres:e1f079db2a26b03dae41@servico-crb_banco:5432/servico-crb?sslmode=disable")
+}
+
+// ---------------------------
+// MODELS
+// ---------------------------
+
+// Modelo para Usuários (Operadores, Fiscais, Admins)
+model User {
+  id          Int       @id @default(autoincrement())
+  name        String
+  email       String    @unique
+  password    String
+  role        Role      @default(OPERATOR)
+  assignments Json? // Armazena as atribuições de contrato/serviço
+
+  records     Record[]  // Um usuário pode ter vários registros de serviço
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("users")
+}
+
+// Modelo para Locais de Serviço
+model Location {
+  id   Int     @id @default(autoincrement())
+  city String // Contrato/Cidade
+  name String
+  area Float
+  lat  Float? // Latitude (opcional)
+  lng  Float? // Longitude (opcional)
+
+  records   Record[] // Um local pode ter vários registros
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("locations")
+}
+
+// Modelo para Registros de Serviço
+model Record {
+  id            Int      @id @default(autoincrement())
+  operatorId    Int
+  operatorName  String   // Nome do operador (denormalizado para relatórios)
+  serviceType   String
+  serviceUnit   String
+  locationName  String
+  contractGroup String
+  locationArea  Float?
+  gpsUsed       Boolean  @default(false)
+  startTime     DateTime
+  endTime       DateTime?
+  beforePhotos  String[]
+  afterPhotos   String[]
+
+  operator  User      @relation(fields: [operatorId], references: [id], onDelete: Cascade)
+  location  Location? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  locationId Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("records")
+}
+
+// Modelo para Tipos de Serviço (Roçagem, Pintura, etc.)
+model Service {
+  id   Int    @id @default(autoincrement())
+  name String @unique
+  unit String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("services")
+}
+
+// Modelo para Metas de Desempenho
+model Goal {
+  id            Int    @id @default(autoincrement())
+  contractGroup String
+  month         String // Formato "YYYY-MM"
+  targetArea    Float
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([contractGroup, month])
+  @@map("goals")
+}
+
+// Modelo para o Log de Auditoria
+model AuditLog {
+  id            Int      @id @default(autoincrement())
+  timestamp     DateTime @default(now())
+  adminId       String
+  adminUsername String
+  action        String // "DELETE" ou "UPDATE"
+  recordId      String
+  details       String
+
+  @@map("audit_logs")
+}
+
+// ---------------------------
+// ENUMS
+// ---------------------------
+
+// Enum para os cargos de usuário
+enum Role {
+  OPERATOR
+  FISCAL
+  ADMIN
+}
